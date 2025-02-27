@@ -10,52 +10,40 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class Client {
-    private String nodeIP;    // This client's IP
-    private String serverIP;  // Server's IP from config
-    private int serverPort;   // Server's port from config
+
+    private String nodeIP;
+    private final int clientPort = 7001;
+    private String serverIP;
+    private int serverPort;
     private SecureRandom secureRandom;
     private ScheduledExecutorService scheduler;
-    private int ranNum1;
     private byte version;
 
     public Client() {
+        try {
+            this.nodeIP = InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            this.nodeIP = "127.0.0.1";
+            System.out.println("Could not determine local IP: " + e.getMessage());
+        }
         this.secureRandom = new SecureRandom();
         this.scheduler = Executors.newScheduledThreadPool(1);
-        this.ranNum1 = secureRandom.nextInt(31);
         this.version = 1;
         loadConfig();
     }
 
     private void loadConfig() {
-        String configFile = "client.config";
-        try {
-            // Get this client's IP
-            this.nodeIP = InetAddress.getLocalHost().getHostAddress();
-
-            // Read server IP and port from config
-            try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
-                String line = reader.readLine();
-                if (line != null && !line.trim().isEmpty()) {
-                    String[] parts = line.trim().split(":");
-                    if (parts.length == 2) {
-                        this.serverIP = parts[0];
-                        this.serverPort = Integer.parseInt(parts[1]);
-                    } else {
-                        throw new IOException("Invalid server address format in config");
-                    }
-                } else {
-                    throw new IOException("Server address not found in config");
-                }
-            } catch (IOException e) {
-                System.out.println("Error reading config: " + e.getMessage());
-                this.serverIP = "127.0.0.1";
-                this.serverPort = 7000;
-            }
-        } catch (Exception e) {
-            System.out.println("Could not determine local IP: " + e.getMessage());
-            this.nodeIP = "127.0.0.1";
+        String configFile = ".config";
+        try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
+            String line = reader.readLine().trim();
+            String[] parts = line.split(":");
+            this.serverIP = parts[0];
+            this.serverPort = Integer.parseInt(parts[1]);
+            System.out.println("Loaded config - Server: " + serverIP + ":" + serverPort);
+        } catch (IOException e) {
+            System.out.println("Error reading client config: " + e.getMessage());
             this.serverIP = "127.0.0.1";
-            this.serverPort = 7000;
+            this.serverPort = 5050;
         }
     }
 
@@ -64,11 +52,12 @@ public class Client {
             @Override
             public void run() {
                 sendHeartbeat();
-                ranNum1 = secureRandom.nextInt(31);
-                scheduler.schedule(this, ranNum1, TimeUnit.SECONDS);
+                int delay = secureRandom.nextInt(31);
+                scheduler.schedule(this, delay, TimeUnit.SECONDS);
             }
         };
-        scheduler.schedule(task, ranNum1, TimeUnit.SECONDS);
+        int initialDelay = secureRandom.nextInt(31);
+        scheduler.schedule(task, initialDelay, TimeUnit.SECONDS);
     }
 
     private void sendHeartbeat() {
@@ -79,10 +68,10 @@ public class Client {
             Message heartbeat = new Message(version, nodeIP, timestamp, fileListing);
             byte[] byteMessage = heartbeat.getMessageBytes();
 
-            InetAddress IPaddress = InetAddress.getByName(serverIP);
-            DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, IPaddress, serverPort);
+            InetAddress serverAddress = InetAddress.getByName(serverIP);
+            DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, serverAddress, serverPort);
             socket.send(packet);
-            System.out.println("Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp + "\n");
+            System.out.println("Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp);
             socket.close();
             version++;
         } catch (Exception e) {
@@ -91,37 +80,35 @@ public class Client {
     }
 
     public void listenForServer() {
-        Thread receiveThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    // Bind to a specific port (7000 for testing)
-                    DatagramSocket socket = new DatagramSocket(7000);
-                    byte[] incomingData = new byte[5120];
+        Thread receiveThread = new Thread(() -> {
+            try {
+                DatagramSocket socket = new DatagramSocket(clientPort);
+                byte[] incomingData = new byte[5120];
 
-                    System.out.println("Listening for heartbeats on " + nodeIP + ":7000...\n");
-                    while (true) {
-                        DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-                        socket.receive(incomingPacket);
+                System.out.println("Client listening on " + nodeIP + ":" + clientPort);
 
-                        // Pass the full buffer because decode() stops where it should
-                        // Message knows the lengths of the fields and data
-                        Message receivedMessage = Message.decode(incomingPacket.getData());
-                        //InetAddress IPAddress = incomingPacket.getAddress();
-                        //int port = incomingPacket.getPort();
-                        
-                        System.out.println("Received message from client: " + receivedMessage.getNodeIP() +
-                                          " - Version: " + receivedMessage.getVersion() +
-                                          ", Timestamp: " + receivedMessage.getTimestamp() +
-                                          ", Files: " + receivedMessage.getFileListing() + "\n");
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                while (true) {
+                    DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
+                    socket.receive(incomingPacket);
+                    Message receivedMessage = Message.decode(incomingPacket.getData());
+                    processServerUpdate(receivedMessage);
+                    printClientStatus(receivedMessage.getFileListing());
                 }
+
+            } catch (Exception e) {
+                System.err.println("Error in listening thread: " + e.getMessage());
             }
         });
         receiveThread.setDaemon(true);
         receiveThread.start();
+    }
+
+    private void processServerUpdate(Message message) {
+        // Empty for now;
+    }
+
+    private void printClientStatus(String data) {
+        // Empty for now
     }
 
     public static void main(String[] args) {
