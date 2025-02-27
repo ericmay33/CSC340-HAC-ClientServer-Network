@@ -23,7 +23,7 @@ public class Client {
         this.scheduler = Executors.newScheduledThreadPool(1);
         this.ranNum1 = secureRandom.nextInt(31);
         this.version = 1;
-        loadConfig(); // Sets nodeIP, serverIP, serverPort
+        loadConfig();
     }
 
     private void loadConfig() {
