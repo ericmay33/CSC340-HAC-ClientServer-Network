@@ -90,8 +90,43 @@ public class Client {
         }
     }
 
+    public void listenForServer() {
+        Thread receiveThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Bind to a specific port (7000 for testing)
+                    DatagramSocket socket = new DatagramSocket(7000);
+                    byte[] incomingData = new byte[5120];
+
+                    System.out.println("Listening for heartbeats on " + nodeIP + ":7000...\n");
+                    while (true) {
+                        DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
+                        socket.receive(incomingPacket);
+
+                        // Pass the full buffer because decode() stops where it should
+                        // Message knows the lengths of the fields and data
+                        Message receivedMessage = Message.decode(incomingPacket.getData());
+                        //InetAddress IPAddress = incomingPacket.getAddress();
+                        //int port = incomingPacket.getPort();
+                        
+                        System.out.println("Received message from client: " + receivedMessage.getNodeIP() +
+                                          " - Version: " + receivedMessage.getVersion() +
+                                          ", Timestamp: " + receivedMessage.getTimestamp() +
+                                          ", Files: " + receivedMessage.getFileListing() + "\n");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        receiveThread.setDaemon(true);
+        receiveThread.start();
+    }
+
     public static void main(String[] args) {
         Client thisPC = new Client();
         thisPC.startHeartbeatTimer();
+        thisPC.listenForServer();
     }
 }
