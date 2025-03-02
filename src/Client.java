@@ -10,11 +10,10 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class Client {
-
-    private String nodeIP;
-    private final int clientPort = 7001;
-    private String serverIP;
-    private int serverPort;
+    private String nodeIP;  // This client's IP (from system)
+    private int clientPort; // This client's port (from config)
+    private String serverIP; // Server's IP (from config)
+    private int serverPort;  // Server's port (from config)
     private SecureRandom secureRandom;
     private ScheduledExecutorService scheduler;
     private byte version;
@@ -23,8 +22,7 @@ public class Client {
         try {
             this.nodeIP = InetAddress.getLocalHost().getHostAddress();
         } catch (Exception e) {
-            this.nodeIP = "127.0.0.1";
-            System.out.println("Could not determine local IP: " + e.getMessage());
+            throw new RuntimeException("Could not determine local IP: " + e.getMessage());
         }
         this.secureRandom = new SecureRandom();
         this.scheduler = Executors.newScheduledThreadPool(1);
@@ -35,15 +33,39 @@ public class Client {
     private void loadConfig() {
         String configFile = ".config";
         try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
-            String line = reader.readLine().trim();
-            String[] parts = line.split(":");
-            this.serverIP = parts[0];
-            this.serverPort = Integer.parseInt(parts[1]);
-            System.out.println("Loaded config - Server: " + serverIP + ":" + serverPort);
+            String line;
+            boolean firstLine = true;
+            boolean foundSelf = false;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) {
+                    String[] parts = line.split(":");
+                    if (parts.length == 2) {
+                        String ip = parts[0];
+                        int port = Integer.parseInt(parts[1]);
+                        if (firstLine) {
+                            // First line is server
+                            this.serverIP = ip;
+                            this.serverPort = port;
+                            firstLine = false;
+                        }
+                        // Check if this line matches the client's IP
+                        if (ip.equals(nodeIP)) {
+                            this.clientPort = port;
+                            foundSelf = true;
+                        }
+                    } else {
+                        throw new IOException("Invalid config format: expected IP:port");
+                    }
+                }
+            }
+            if (serverIP == null || serverPort == 0 || !foundSelf) {
+                throw new IOException("Config missing server or client info for " + nodeIP);
+            }
+            System.out.println("Loaded config - Server: " + serverIP + ":" + serverPort + 
+                              ", Client Port: " + clientPort);
         } catch (IOException e) {
-            System.out.println("Error reading client config: " + e.getMessage());
-            this.serverIP = "127.0.0.1";
-            this.serverPort = 5050;
+            throw new RuntimeException("Error reading client config: " + e.getMessage());
         }
     }
 
@@ -75,7 +97,7 @@ public class Client {
             socket.close();
             version++;
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Error sending heartbeat: " + e.getMessage());
         }
     }
 
@@ -86,15 +108,12 @@ public class Client {
                 byte[] incomingData = new byte[5120];
 
                 System.out.println("Client listening on " + nodeIP + ":" + clientPort);
-
                 while (true) {
                     DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
                     socket.receive(incomingPacket);
                     Message receivedMessage = Message.decode(incomingPacket.getData());
-                    processServerUpdate(receivedMessage);
-                    printClientStatus(receivedMessage.getFileListing());
+                    processAndPrint(receivedMessage);
                 }
-
             } catch (Exception e) {
                 System.err.println("Error in listening thread: " + e.getMessage());
             }
@@ -103,12 +122,25 @@ public class Client {
         receiveThread.start();
     }
 
-    private void processServerUpdate(Message message) {
-        // Empty for now;
-    }
+    private void processAndPrint(Message message) {
+        String fileListing = message.getFileListing();
+        if (fileListing == null || fileListing.isEmpty()) {
+            System.out.println("Received empty update from server");
+            return;
+        }
 
-    private void printClientStatus(String data) {
-        // Empty for now
+        String[] nodeEntries = fileListing.split(";");
+        for (String entry : nodeEntries) {
+            String[] parts = entry.split(":");
+            if (parts.length == 3) {
+                String nodeIP = parts[0];
+                String status = parts[1];
+                String files = parts[2];
+                System.out.println("Node: " + nodeIP + ", Availability: " + status + ", Files: " + files);
+            } else {
+                System.out.println("Invalid entry format: " + entry);
+            }
+        }
     }
 
     public static void main(String[] args) {
