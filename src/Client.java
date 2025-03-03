@@ -124,6 +124,7 @@ public class Client {
 
     private void processAndPrint(Message message) {
         String fileListing = message.getFileListing();
+        System.out.println("Raw fileListing received: " + fileListing); // Debug log
         if (fileListing == null || fileListing.isEmpty()) {
             System.out.println("Received empty update from server");
             return;
