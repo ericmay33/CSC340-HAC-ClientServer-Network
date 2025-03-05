@@ -1,3 +1,6 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -5,9 +8,6 @@ import java.security.SecureRandom;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 
 public class Client {
     private String nodeIP;  // This client's IP (from system)
@@ -62,8 +62,8 @@ public class Client {
             if (serverIP == null || serverPort == 0 || !foundSelf) {
                 throw new IOException("Config missing server or client info for " + nodeIP);
             }
-            System.out.println("Loaded config - Server: " + serverIP + ":" + serverPort + 
-                              ", Client Port: " + clientPort);
+            //System.out.println("Loaded config - Server: " + serverIP + ":" + serverPort + 
+            //                  ", Client Port: " + clientPort);
         } catch (IOException e) {
             throw new RuntimeException("Error reading client config: " + e.getMessage());
         }
@@ -93,7 +93,7 @@ public class Client {
             InetAddress serverAddress = InetAddress.getByName(serverIP);
             DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, serverAddress, serverPort);
             socket.send(packet);
-            System.out.println("Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp);
+            System.out.println("\n  -------------------------------------------------------------  \n| Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp + " |\n  -------------------------------------------------------------  ");
             socket.close();
             version++;
         } catch (Exception e) {
@@ -107,7 +107,7 @@ public class Client {
                 DatagramSocket socket = new DatagramSocket(clientPort);
                 byte[] incomingData = new byte[5120];
 
-                System.out.println("Client listening on " + nodeIP + ":" + clientPort);
+                //System.out.println("Client listening on " + nodeIP + ":" + clientPort);
                 while (true) {
                     DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
                     socket.receive(incomingPacket);
@@ -124,7 +124,7 @@ public class Client {
 
     private void processAndPrint(Message message) {
         String fileListing = message.getFileListing();
-        System.out.println("Raw fileListing received: " + fileListing); // Debug log
+        System.out.println("\n-=<{ Raw fileListing received: " + fileListing + " }>=-"); // Debug log
         if (fileListing == null || fileListing.isEmpty()) {
             System.out.println("Received empty update from server");
             return;
@@ -137,7 +137,7 @@ public class Client {
                 String nodeIP = parts[0];
                 String status = parts[1];
                 String files = parts[2];
-                System.out.println("Node: " + nodeIP + ", Availability: " + status + ", Files: " + files);
+                System.out.println("\n-=<{ Node: " + nodeIP + ", Availability: " + status + ", Files: " + files + " }>=-");
             } else {
                 System.out.println("Invalid entry format: " + entry);
             }
