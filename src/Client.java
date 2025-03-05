@@ -93,7 +93,7 @@ public class Client {
             InetAddress serverAddress = InetAddress.getByName(serverIP);
             DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, serverAddress, serverPort);
             socket.send(packet);
-            System.out.println("\n  -------------------------------------------------------------  \n| Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp + " |\n  -------------------------------------------------------------  ");
+            //System.out.println("\n  -------------------------------------------------------------  \n| Sent heartbeat to " + serverIP + ":" + serverPort + " at Unix time " + timestamp + " |\n  -------------------------------------------------------------  ");
             socket.close();
             version++;
         } catch (Exception e) {
@@ -124,9 +124,9 @@ public class Client {
 
     private void processAndPrint(Message message) {
         String fileListing = message.getFileListing();
-        System.out.println("\n-=<{ Raw fileListing received: " + fileListing + " }>=-"); // Debug log
+        //System.out.println("\n-=<{ Raw fileListing received: " + fileListing + " }>=-"); // Debug log
         if (fileListing == null || fileListing.isEmpty()) {
-            System.out.println("Received empty update from server");
+            //System.out.println("\nReceived empty update from server");
             return;
         }
 
