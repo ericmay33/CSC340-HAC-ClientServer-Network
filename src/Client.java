@@ -131,6 +131,7 @@ public class Client {
         }
 
         String[] nodeEntries = fileListing.split(";");
+        System.out.println("\n|####################|\n| NODE AVAILABILITY: |\n|####################|");
         for (String entry : nodeEntries) {
             String[] parts = entry.split(":");
             if (parts.length == 3) {
